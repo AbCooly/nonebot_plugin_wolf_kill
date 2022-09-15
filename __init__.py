@@ -1,4 +1,4 @@
-from nonebot.adapters.onebot.v11 import Bot, Event
+from nonebot.adapters.onebot.v11 import Bot, Event, Message
 from .info import get_says, get_role_info, mode_choose
 from .utils import group_card, ban_say, unban_say, private_say, send_gm
 import random
@@ -10,25 +10,9 @@ create_game = {}
 group_dist = {}  # 参加人员
 game_mode = {}  # 游戏是否开始
 # 时间线:夜晚 - (竞选) - 宣布死亡(是否结束)(猎人) - 白天发言(自爆) - 投票 - (决斗) - 放逐(是否结束) - 黑夜
-game_roles = {}  # 角色扮演
-
+game_roles = {}  # qq:角色
 roles_gamer = {}  # 翻转成 角色-玩家 qq-职业
 wolf_no_get_skill = {}
-
-'''
-{
-    group : {
-        shen:{  "god"  : qq
-        },    
-        people:[],
-        wolf:{
-        wolf:[q1,q2]
-        wolf_bai:
-        }
-        
-    }
-}'''
-
 roles_do = {}  # 角色行动 1-守卫 2-摄梦 3-乌鸦  4-狼人 5-预言家 6-女巫 7-骑士 8-hunter 9-狼王
 who_say = {}  # 轮次发言
 police = {}  # 警长
@@ -69,7 +53,7 @@ translate = {
     "people": "平民",
 }
 
-zd = on_command("/自定义")  # 参加
+zd = on_command("/自定义")
 @zd.handle()
 async def zdy(bot: Bot, event: Event):
     global create_game
@@ -96,8 +80,15 @@ async def zdy(bot: Bot, event: Event):
         if "people" not in args:
             args.append("people")
 
-        create_game.setdefault(group, args)
-        await zd.send(message=f"自定义成功 + {str(create_game[group])}")
+        if "people" not in create_game[group] or "wolf" not in create_game[group]:
+            await zd.send(message=f"参数错误,people 和 wolf 至少一个,当前参数为:\n{str(create_game[group])}")
+        else:
+            if group in create_game:
+                create_game[group] = args
+            else:
+                create_game.setdefault(group, args)
+            await zd.send(message=f"自定义成功 + {str(create_game[group])}")
+
     except:
         res = "当前能用的角色有:"
         for i in translate:
@@ -106,7 +97,7 @@ async def zdy(bot: Bot, event: Event):
                               "定义一个3神3狼3人无警长,技能有 预言家 白狼王 女巫 猎人\n" + res)
 
 
-bm = on_command("/禁言模式")  # 参加
+bm = on_command("/禁言模式")  # 非发言时禁言
 @bm.handle()
 async def set_ban(bot: Bot, event: Event):
     global ban_mode
@@ -185,8 +176,9 @@ async def restart_game(bot: Bot, event: Event):
     except IndexError:
         await rs.send(message="请在群聊重试")
         return
-    if group in create_game:
-        del create_game[group]
+    if group not in group_dist:
+        await rs.send(message="进程不存在,请重新参赛.")
+        return
     if group in game_mode:
         del game_mode[group]
     if group in game_roles:
@@ -208,7 +200,7 @@ async def restart_game(bot: Bot, event: Event):
     if group in wolf_no_get_skill:
         del wolf_no_get_skill[group]
 
-    await rs.send(message="正在重启")
+    await rs.send(message="正在重开")
     await game_main(bot, group)
 
 
@@ -241,7 +233,7 @@ async def start_gmae(bot: Bot, event: Event):
         if n != max_p:
             await ks.send(message=f"人数不足{str(max_p)}人, 无法开始")
             return
-    if group in police:
+    if group in game_mode and game_mode[group] == 1:
         res = "游戏进程已存在,游戏正在进行中."
         await ks.send(message=res)
     else:
@@ -257,7 +249,7 @@ async def start_gmae(bot: Bot, event: Event):
                 await send_gm(bot, group, "权限不足.无法改名")
 
 
-gd = on_command("/获取进程")  # 进入游戏线程
+gd = on_command("/获取进度")  # 进入游戏线程
 @gd.handle()
 async def get_doing(bot: Bot, event: Event):
     qq = event.get_user_id()
@@ -369,6 +361,7 @@ async def game_main(bot: Bot, group):
     roles_gamer[group] = b
 
     # 私聊身分
+    res_night = get_says('night')
     not_add = []
     for qq in lt:
         res = get_role_info(d[qq])
@@ -383,13 +376,13 @@ async def game_main(bot: Bot, group):
         except ActionFailed:
             not_add.append(qq)
             await asyncio.sleep(1)
+        res_night = res_night + f"\n{str(lt.index(qq)+1)}号:[CQ:at,qq={qq}]"
 
     if not_add:
         await send_gm(bot, group, "警告：以下成员未添加好友,发消息有概率失败,封号概率上升！" + str(not_add))
-
     game_mode[group] = 1
     # 开始夜晚流程
-    await send_gm(bot, group, get_says('night'))
+    await send_gm(bot, group, res_night)
     await game_night(bot, group)
 
 
@@ -459,6 +452,7 @@ async def check_die(bot: Bot, group):  # 前夕:进入白天-(警长流程)-彻�
     global night, roles_do, who_say, today
     who_say.setdefault(group, 0)
     die_men = maybe_die[group]
+    del maybe_die[group]    # 过夜清除
     die_say = 0
     res = ""
     if police[group]["has_police"] == 1 and today[group] == 0 and "police" not in police[group]:  # 第一天, 进入警长流程
@@ -473,15 +467,17 @@ async def check_die(bot: Bot, group):  # 前夕:进入白天-(警长流程)-彻�
         for die_man in die_men:
             die_say = await kill(bot, group, die_man)  # 杀死
 
-    if night[group] == 0:  # 进入白天
-        night[group] = 1
-        today[group] += 1
+    # 如果游戏未结束
+    if group in group_dist:
+        if night[group] == 0:  # 进入白天
+            night[group] = 1
+            today[group] += 1
 
-    who_say[group] = 0
-    if die_say == 0:  # 无遗言直接天亮
-        res += f"天亮了,今天是第{str(today[group])}天.进入白天轮流发言"
-        await send_gm(bot, group, res)
-        await game_morning(bot, group)  # 否则进入白天发言流程
+        who_say[group] = 0
+        if die_say == 0:  # 无遗言直接天亮
+            res += f"天亮了,今天是第{str(today[group])}天.进入白天轮流发言"
+            await send_gm(bot, group, res)
+            await game_morning(bot, group)  # 否则进入白天发言流程
 
 
 # 返回有无遗言
@@ -640,7 +636,7 @@ async def say_min(bot: Bot, group, qq):  # 发言一分钟: (创造定时任务(
         if qq == group_dist[group][i]:
             num = str(i + 1)
 
-    await send_gm(bot, group, f"有请{num}号发言,结束发言回复 /过")
+    await send_gm(bot, group, Message(f"有请{num}号[CQ:at,qq={qq}]发言,结束发言回复 /过"))
 
 
 # 白天轮流发言
@@ -733,7 +729,7 @@ async def check_vote_finish(bot: Bot, group):
 # 票数检测 -(白痴检测) - 杀死进入黑夜
 async def quzhu(bot: Bot, group):  # 驱逐
     global night, roles_do, game_roles
-    # (决斗完成) 进入驱逐环节(投票最大-同票
+    # 驱逐环节(投票最大-同票
     v_ls = []
     for k, v in vote_list[group].items():
         v_ls.append(v[1])
@@ -757,13 +753,14 @@ async def quzhu(bot: Bot, group):  # 驱逐
         else:
             await send_gm(bot, group, "全员弃票,无人被驱逐")
 
-    # 结束.删除投票信息
-    del vote_list[group]
-    if die_say == 0:  # 无遗言, 进入黑夜
-        await send_gm(bot, group, "天黑请闭眼")
-        del night[group]
-        roles_do[group] = 0
-        await game_night(bot, group)
+    # 如果游戏未结束.删除投票信息
+    if group in group_dist:
+        del vote_list[group]
+        if die_say == 0:  # 无遗言, 进入黑夜
+            await send_gm(bot, group, "天黑请闭眼")
+            del night[group]
+            roles_do[group] = 0
+            await game_night(bot, group)
 
 
 # 只能在群聊投票
@@ -825,17 +822,19 @@ async def vote_to(bot: Bot, event: Event):
 
     # 加票
     try:
-        if args[0] != "0":
+        if args[0] != "0" and num < len(group_dist[group]):
             voted_qq = group_dist[group][num]
             voted_list = vote_list[group][voted_qq]
             if "police" in police[group] and (qq == police[group]["police"]):
                 voted_list[1] += 1  # 警长在家一票
             voted_list[1] += 1
             vote_list[group][voted_qq] = voted_list
+            res = f"投{str(num + 1)}号成功"
+        else:
+            res = f"弃票成功"
         qq_list = vote_list[group][qq]
         qq_list[0] += 1
         vote_list[group][qq] = qq_list
-        res = f"投{str(num + 1)}号成功"
     except:
         res = "投票失败请稍后重试"
     # 检测是否全投
@@ -883,7 +882,7 @@ async def skip_say(bot: Bot, event: Event):
             await send_gm(bot, group, "禁言权限不足")
 
     if who_say[group] == len(qq_ls) + 1:  # 遗言检测 , 白天死人(骑士决斗,白狼自爆)直接进入黑夜
-        await send_gm(bot, group, "发言结束.")
+        await send_gm(bot, group, "遗言结束,继续游戏.")
         roles_do[group] = 0
         await game_night(bot, group)
     else:
@@ -927,6 +926,10 @@ async def guard(bot: Bot, event: Event):
         l = skill_effect[group][obj]  # 获取效果,防止连续
         if "shouhu" in l:
             res = "不可连续两次守护同一对象,请重试"
+            whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
             whether_return = 1
         if whether_return == 1:
             try:
@@ -975,7 +978,10 @@ async def dreaming(bot: Bot, event: Event):
         if game_roles[group][qq] != roles_dict[who_do]:
             res = "未轮到你的回合"
             whether_return = 1
-
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
+            whether_return = 1
         if whether_return == 1:
             try:
                 await shemeng.send(message=res)
@@ -1033,6 +1039,10 @@ async def curse(bot: Bot, event: Event):
         if game_roles[group][qq] != roles_dict[who_do]:
             res = "未轮到你的回合"
             whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
+            whether_return = 1
         if whether_return == 1:
             try:
                 await wuya.send(message=res)
@@ -1088,6 +1098,10 @@ async def wolf_kill(bot: Bot, event: Event):
         if "wolf_no" == game_roles[group][qq] and not wolf_no_get_skill[group]:
             res = "技能未觉醒"
             whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
+            whether_return = 1
         if whether_return == 1:
             try:
                 await wolf.send(message=res)
@@ -1137,6 +1151,10 @@ async def fight(bot: Bot, event: Event):
         who_do = roles_do[group]  # 身份验证
         if game_roles[group][qq] != roles_dict[who_do] or night[group] == 0:
             res = "未轮到你的回合"
+            whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
             whether_return = 1
         if whether_return == 1:
             try:
@@ -1195,6 +1213,10 @@ async def shoot(bot: Bot, event: Event):
         if game_roles[group][qq] != roles_dict[who_do]:
             res = "未轮到你的回合"
             whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
+            whether_return = 1
         if whether_return == 1:
             try:
                 await hunter.send(message=res)
@@ -1247,6 +1269,10 @@ async def die_sk(bot: Bot, event: Event):
         if game_roles[group][qq] != roles_dict[who_do]:
             res = "未轮到你的回合."
             whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
+            whether_return = 1
         if whether_return == 1:
             try:
                 await wolf_king.send(message=res)
@@ -1294,6 +1320,10 @@ async def inquire(bot: Bot, event: Event):
         if game_roles[group][qq] != roles_dict[who_do]:
             res = "未轮到你的回合"
             whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
+            whether_return = 1
         if whether_return == 1:
             try:
                 await yuyan.send(message=res)
@@ -1323,6 +1353,7 @@ async def poison(bot: Bot, event: Event):
     global skill_effect, roles_do, nvwu_yao
     args = str(event.get_message()).split()
     command_str = "/毒"  # 版本兼容
+    num = 0
     res = "error"
     whether_return = 0
     if command_str in args:
@@ -1344,6 +1375,10 @@ async def poison(bot: Bot, event: Event):
         who_do = roles_do[group]
         if game_roles[group][qq] != roles_dict[who_do] or nvwu_yao[group][0] == 0:
             res = "未轮到你的回合或药已用完"
+            whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
             whether_return = 1
         if whether_return == 1:  # return检测
             try:
@@ -1449,6 +1484,10 @@ async def boom(bot: Bot, event: Event):
         your_role = game_roles[group][qq]
         if your_role != "wolf_bai":
             res = "与你角色不符合"
+            whether_return = 1
+        # 范围判定
+        if num < 0 or num >= len(group_dist[group]):
+            res = "对象不存在"
             whether_return = 1
         if whether_return == 1:
             try:

@@ -1,6 +1,23 @@
+<p align="center">
+  <a href="https://v2.nonebot.dev/"><img src="https://v2.nonebot.dev/logo.png" width="200" height="200" alt="nonebot"></a>
+</p>
+
+<div align="center">
+
 # nonebot_plugin_wolf_kill
 
-基于nonebot2的狼人杀游戏插件
+——基于nonebot2的狼人杀游戏插件
+
+## 简介
+
+在群里玩狼人杀
+
+<p align="center">
+  <a href="https://pypi.org/project/nonebot-plugin-wolf-kill/">
+    <img src="https://img.shields.io/pypi/v/nonebot-plugin-wolf-kill.svg" alt="pypi">
+  </a>
+  <img src="https://img.shields.io/badge/python-3.7+-blue.svg" alt="python">
+</p>
 
 ## 功能介绍
 
