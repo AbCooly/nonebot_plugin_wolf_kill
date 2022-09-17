@@ -2,9 +2,20 @@ from nonebot.adapters.onebot.v11 import Bot, Event, Message
 from .info import get_says, get_role_info, mode_choose
 from .utils import group_card, ban_say, unban_say, private_say, send_gm
 import random
-from nonebot.plugin import on_command
+from nonebot.plugin import on_message
 from nonebot.exception import ActionFailed
+
 import asyncio
+from nonebot.rule import startswith
+
+
+def on_command(cm, rule=None, aliases=None, _depth=0, **kwargs):
+    commands = set([cm]) | (aliases or set())
+    block = kwargs.pop("block", False)
+    return on_message(
+        startswith(commands) & rule, block=block, **kwargs, _depth=_depth + 1
+    )
+
 
 create_game = {}
 group_dist = {}  # 参加人员
@@ -79,8 +90,7 @@ async def zdy(bot: Bot, event: Event):
             args.append("wolf")
         if "people" not in args:
             args.append("people")
-
-        if "people" not in create_game[group] or "wolf" not in create_game[group]:
+        if "people" not in args or "wolf" not in args:
             await zd.send(message=f"参数错误,people 和 wolf 至少一个,当前参数为:\n{str(create_game[group])}")
         else:
             if group in create_game:
@@ -88,7 +98,6 @@ async def zdy(bot: Bot, event: Event):
             else:
                 create_game.setdefault(group, args)
             await zd.send(message=f"自定义成功 + {str(create_game[group])}")
-
     except:
         res = "当前能用的角色有:"
         for i in translate:

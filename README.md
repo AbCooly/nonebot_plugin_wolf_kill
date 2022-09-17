@@ -2,8 +2,6 @@
   <a href="https://v2.nonebot.dev/"><img src="https://v2.nonebot.dev/logo.png" width="200" height="200" alt="nonebot"></a>
 </p>
 
-<div align="center">
-
 # nonebot_plugin_wolf_kill
 
 ——基于nonebot2的狼人杀游戏插件
@@ -76,3 +74,9 @@
 胜利
 
 ![image-20220911161548779](https://c2cpicdw.qpic.cn/offpic_new/2553997408//2553997408-2463611318-F832E862DC9322FEA1D4D183FD6E8C4D/0)
+
+## 另外
+
+记得把临时会话打开
+
+![](https://gchat.qpic.cn/gchatpic_new/3552789075/2088129482-2224600292-D74D73A9E2BB1685F3F2DA0B89A71134/0)
