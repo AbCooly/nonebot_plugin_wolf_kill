@@ -16,6 +16,7 @@ class Nvwu(God):
     async def save_man(self, who: Man) -> bool:
         if who.maybe_die and self.save_med:
             who.maybe_die = False
+            self.save_med = False
             res = "解救成功."
             b = True
         else:
@@ -27,6 +28,7 @@ class Nvwu(God):
     async def skill(self, who: Man) -> bool:
         if not who.has_die and self.kill_med:
             who.states.append("du")
+            self.kill_med = False
             await who.fake_die()
             res = "毒杀成功"
             b = True

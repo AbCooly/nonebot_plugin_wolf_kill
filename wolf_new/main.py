@@ -33,16 +33,22 @@ async def game_main(cf: Config):
         cf.roles_dict_have.append("nvwu")
     if "qishi" in s:
         cf.roles_dict_have.append("qishi")
+    if "hunter" in s:
+        cf.roles_dict_have.append("hunter")
+    if "baichi" in s:
+        cf.roles_dict_have.append("baichi")
 
     lc = l.copy()
+    q_obj = {}
     try:
+        # 随机分配
         wolf_k = 0
         cf.role_qq.setdefault("people", [])
         people = cf.role_qq["people"]
         for i in range(0, num_people):  # 分配平民
             x = random.randint(0, len(lc) - 1)
             qq = lc[x]
-            cf.qq_obj.setdefault(qq, People(lc[x], i+1, cf))    # 创建对象
+            q_obj.setdefault(qq, People(lc[x], i+1, cf))    # 创建对象
             people.append(qq)
             del lc[x]
         s.remove('people')
@@ -54,8 +60,8 @@ async def game_main(cf: Config):
                 wolf_k += 1
             x = random.randint(0, len(lc) - 1)
             qq = lc[x]
-            num = len(cf.qq_obj) + 1
-            cf.qq_obj.setdefault(qq, eval(finalpool.obj[role]))
+            num = len(q_obj) + 1
+            q_obj.setdefault(qq, eval(finalpool.obj[role]))
             cf.role_qq.setdefault(role, [qq])
             del lc[x]
 
@@ -63,13 +69,24 @@ async def game_main(cf: Config):
         wolf = cf.role_qq["wolf"]
         for i in range(0, num_wolf_all - wolf_k):  # 分配狼
             x = random.randint(0, len(lc) - 1)
-            num = len(cf.qq_obj) + 1
+            num = len(q_obj) + 1
             qq = lc[x]
-            cf.qq_obj.setdefault(qq, Wolf(lc[x], num, cf))
+            q_obj.setdefault(qq, Wolf(lc[x], num, cf))
             wolf.append(qq)
             del lc[x]
     except:
         await send_gm(cf.bot, group, "失败,参数配置错误")
+
+    # 随机打乱
+    lll = l.copy()
+    for i in range(0, len(lll)):
+        x = random.randint(0, len(lll) - 1)
+        num = i+1
+        qq = lll[x]
+        del lll[x]
+        q_obj[qq].number = num
+        cf.qq_obj.setdefault(qq, q_obj[qq])
+
     res = "本局的技能身份有:"
     for s_i in s:
         res += f"{finalpool.translate[s_i]},"
